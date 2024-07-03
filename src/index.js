@@ -118,15 +118,22 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
 }
 
 async function getFileContent(owner, repo, path, commitId) {
-  const result = await octokit.repos.getContent({
-    owner,
-    repo,
-    path,
-    ref: commitId, // Specify the commit SHA as the reference
-  });
+  try {
+    const result = await octokit.repos.getContent({
+      owner,
+      repo,
+      path,
+      ref: commitId, // Specify the commit SHA as the reference
+    });
 
-  const content = Buffer.from(result.data.content, "base64").toString("utf-8");
-  return content;
+    const content = Buffer.from(result.data.content, "base64").toString(
+      "utf-8"
+    );
+    return content;
+  } catch (error) {
+    console.error("Error getting file content:", error);
+    throw error;
+  }
 }
 
 async function generateReviewComments(fileChanges, commitId) {
