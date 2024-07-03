@@ -4,13 +4,13 @@ import axios from "axios";
 import { Octokit } from "@octokit/rest";
 import dotenv from "dotenv";
 
-dotenv.config(); // Load environment variables
+dotenv.config();
 
 const app = express();
 const port = 3000;
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN }); // Use the environment variable
-const openaiApiKey = process.env.OPENAI_API_KEY; // Use the environment variable
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const openaiApiKey = process.env.OPENAI_API_KEY;
 
 app.use(bodyParser.json());
 
@@ -35,15 +35,10 @@ app.post("/webhook", async (req, res) => {
       },
     });
 
-    const changes = diffData.data;
-    const explanation = await getExplanationFromChatGPT(changes);
+    const changes = parseDiff(diffData.data);
+    const reviewComments = await generateReviewComments(changes);
 
-    await octokit.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body: explanation,
-    });
+    await postReviewComments(owner, repo, prNumber, reviewComments);
 
     res.status(200).send("Webhook received and processed");
   } else {
@@ -51,16 +46,39 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-async function getExplanationFromChatGPT(diff) {
-  const changes = diff
-    .split("\n")
-    .filter((line) => line.startsWith("+") && !line.startsWith("+++"));
-  const code = changes.join("\n");
+function parseDiff(diff) {
+  const files = diff.split("diff --git ").slice(1);
 
+  return files.map((fileDiff) => {
+    const [fileHeader, ...diffLines] = fileDiff.split("\n");
+    const fileName = fileHeader.split(" ")[1].slice(2); // Extract the file name
+    const changes = diffLines
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+      .map((line, index) => ({ line: line.slice(1), lineNumber: index + 1 }));
+    return { fileName, changes };
+  });
+}
+
+async function generateReviewComments(changes) {
+  const comments = [];
+  for (const { fileName, changes: fileChanges } of changes) {
+    for (const { line, lineNumber } of fileChanges) {
+      const explanation = await getExplanationFromChatGPT(line);
+      comments.push({
+        path: fileName,
+        position: lineNumber,
+        body: explanation,
+      });
+    }
+  }
+  return comments;
+}
+
+async function getExplanationFromChatGPT(code) {
   const response = await axios.post(
     "https://api.openai.com/v1/engines/davinci-codex/completions",
     {
-      prompt: `Explain the following JavaScript code changes:\n\n${code}\n\nExplanation:`,
+      prompt: `Explain the following JavaScript code:\n\n${code}\n\nExplanation:`,
       max_tokens: 150,
       n: 1,
       stop: null,
@@ -75,6 +93,16 @@ async function getExplanationFromChatGPT(diff) {
   );
 
   return response.data.choices[0].text.trim();
+}
+
+async function postReviewComments(owner, repo, pullNumber, comments) {
+  await octokit.pulls.createReview({
+    owner,
+    repo,
+    pull_number: pullNumber,
+    event: "COMMENT",
+    comments,
+  });
 }
 
 app.listen(port, () => {
