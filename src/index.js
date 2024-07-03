@@ -46,6 +46,10 @@ app.post("/webhook", async (req, res) => {
 
     const parsedDiff = parseDiff(diffData.data);
 
+    const filteredDiff = filterIgnoredFiles(parsedDiff);
+
+    console.log("filteredDiff", filteredDiff);
+
     console.log("parsedDiff", parsedDiff);
 
     parsedDiff.map((file) => {
@@ -83,6 +87,11 @@ function parseDiff(diff) {
       .map((line) => ({ line: line.slice(1).trim() }));
     return { fileName, changes };
   });
+}
+
+function filterIgnoredFiles(parsedDiff) {
+  const ignoredFiles = ["package.json", "package-lock.json"];
+  return parsedDiff.filter((file) => !ignoredFiles.includes(file.fileName));
 }
 
 async function fetchFileContents(owner, repo, parsedDiff, commitId) {
