@@ -53,8 +53,6 @@ app.post("/webhook", async (req, res) => {
         headCommitSha
       );
 
-      console.log("Review comments:", reviewComments);
-
       await updateReviewComments(owner, repo, prNumber, reviewComments);
 
       res.status(200).send("Webhook received and processed");
@@ -119,8 +117,11 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
         );
         return { ...file, fileContent };
       } catch (error) {
-        console.error(`Error fetching content for ${file.fileName}:`, error);
-        return null;
+        if (error.status === "404") {
+          return null;
+        } else {
+          throw error;
+        }
       }
     })
   ).then((results) => results.filter((file) => file !== null)); // Filter out null values
