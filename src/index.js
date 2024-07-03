@@ -124,10 +124,9 @@ async function generateReviewComments(fileChanges, commitId) {
 
 async function getExplanationFromChatGPT(fileContent, changes) {
   const codeChanges = changes.map((change) => change.line).join("\n");
-  const prompt = `Here's a file with JavaScript code: - The following lines have been changed:\n\n${codeChanges}\n\nPlease explain these changes:`;
+  const prompt = `Here's a file with JavaScript code: -- here goes file content --.  Please explain these changes: -- here go line changes --`;
   // const prompt = `Here's a file with JavaScript code:\n\n${fileContent}\n\nThe following lines have been changed:\n\n${codeChanges}\n\nPlease explain these changes:`;
 
-  console.log("prompt", prompt + (1 + 2));
   console.log("api called!");
   // const response = await axios.post(
   //   "https://api.openai.com/v1/completions",
