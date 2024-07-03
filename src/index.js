@@ -20,45 +20,50 @@ app.get("/", (req, res) => {
 });
 
 app.post("/webhook", async (req, res) => {
-  const action = req.body.action;
-  const pr = req.body.pull_request;
+  try {
+    const action = req.body.action;
+    const pr = req.body.pull_request;
 
-  // React to 'opened' and 'synchronize' actions
-  if (pr && (action === "opened" || action === "synchronize")) {
-    const owner = pr.base.repo.owner.login;
-    const repo = pr.base.repo.name;
-    const prNumber = pr.number;
+    // React to 'opened' and 'synchronize' actions
+    if (pr && (action === "opened" || action === "synchronize")) {
+      const owner = pr.base.repo.owner.login;
+      const repo = pr.base.repo.name;
+      const prNumber = pr.number;
 
-    const headCommitSha = pr.head.sha; // Get the latest commit SHA
-    const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha);
+      const headCommitSha = pr.head.sha; // Get the latest commit SHA
+      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha);
 
-    const diffData = await octokit.repos.compareCommits({
-      owner,
-      repo,
-      base: baseCommitSha,
-      head: headCommitSha,
-    });
+      const diffData = await octokit.repos.compareCommits({
+        owner,
+        repo,
+        base: baseCommitSha,
+        head: headCommitSha,
+      });
 
-    const parsedDiff = parseDiff(diffData.data);
-    const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
-    const fileChanges = await fetchFileContents(
-      owner,
-      repo,
-      filteredDiff,
-      headCommitSha
-    );
-    const reviewComments = await generateReviewComments(
-      fileChanges,
-      headCommitSha
-    );
+      const parsedDiff = parseDiff(diffData.data);
+      const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
+      const fileChanges = await fetchFileContents(
+        owner,
+        repo,
+        filteredDiff,
+        headCommitSha
+      );
+      const reviewComments = await generateReviewComments(
+        fileChanges,
+        headCommitSha
+      );
 
-    console.log("Review comments:", reviewComments);
+      console.log("Review comments:", reviewComments);
 
-    await updateReviewComments(owner, repo, prNumber, reviewComments);
+      await updateReviewComments(owner, repo, prNumber, reviewComments);
 
-    res.status(200).send("Webhook received and processed");
-  } else {
-    res.status(400).send("Not a pull request event");
+      res.status(200).send("Webhook received and processed");
+    } else {
+      res.status(400).send("Not a pull request event");
+    }
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    res.status(500).send("Internal server error");
   }
 });
 
@@ -104,12 +109,8 @@ function filterIgnoredFiles(parsedDiff) {
 
 async function fetchFileContents(owner, repo, parsedDiff, commitId) {
   return await Promise.all(
-    parsedDiff
-      .map(async (file) => {
-        if (file.status === "removed") {
-          // Skip fetching content for removed files
-          return null;
-        }
+    parsedDiff.map(async (file) => {
+      try {
         const fileContent = await getFileContent(
           owner,
           repo,
@@ -117,9 +118,12 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
           commitId
         );
         return { ...file, fileContent };
-      })
-      .filter((file) => file !== null)
-  );
+      } catch (error) {
+        console.error(`Error fetching content for ${file.fileName}:`, error);
+        return null;
+      }
+    })
+  ).then((results) => results.filter((file) => file !== null)); // Filter out null values
 }
 
 async function getFileContent(owner, repo, path, commitId) {
