@@ -117,7 +117,7 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
         );
         return { ...file, fileContent };
       } catch (error) {
-        if (error.status === "404") {
+        if (error.status === 404) {
           return null;
         } else {
           throw error;
