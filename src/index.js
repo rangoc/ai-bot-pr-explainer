@@ -104,17 +104,22 @@ function filterIgnoredFiles(parsedDiff) {
 }
 
 async function fetchFileContents(owner, repo, parsedDiff, commitId) {
-  return await Promise.all(
-    parsedDiff.map(async (file) => {
-      const fileContent = await getFileContent(
-        owner,
-        repo,
-        file.fileName,
-        commitId
-      );
-      return { ...file, fileContent };
-    })
-  );
+  try {
+    return await Promise.all(
+      parsedDiff.map(async (file) => {
+        const fileContent = await getFileContent(
+          owner,
+          repo,
+          file.fileName,
+          commitId
+        );
+        return { ...file, fileContent };
+      })
+    );
+  } catch (error) {
+    console.error("Error fetching file contents:", error);
+    throw error;
+  }
 }
 
 async function getFileContent(owner, repo, path, commitId) {
