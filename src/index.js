@@ -38,8 +38,6 @@ app.post("/webhook", async (req, res) => {
       },
     });
 
-    // console.log("diffData", diffData.data);
-
     const commitId = pr.head.sha; // Get the latest commit SHA
 
     console.log("commitId", commitId);
@@ -49,12 +47,6 @@ app.post("/webhook", async (req, res) => {
     const filteredDiff = filterIgnoredFiles(parsedDiff);
 
     console.log("filteredDiff", filteredDiff);
-
-    console.log("parsedDiff", parsedDiff);
-
-    parsedDiff.map((file) => {
-      console.log("fileChanges", file.changes[0]);
-    });
 
     // const fileChanges = await fetchFileContents(
     //   owner,
