@@ -28,29 +28,31 @@ app.post("/webhook", async (req, res) => {
     const owner = pr.base.repo.owner.login;
     const repo = pr.base.repo.name;
     const prNumber = pr.number;
-    const commitId = pr.head.sha; // Get the latest commit SHA
+
+    const headCommitSha = pr.head.sha; // Get the latest commit SHA
+    const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha);
 
     const diffData = await octokit.repos.compareCommits({
       owner,
       repo,
-      base: pr.base.sha,
-      head: commitId,
+      base: baseCommitSha,
+      head: headCommitSha,
     });
 
-    const parsedDiff = parseDiff(diffData.data.files);
-
-    const filteredDiff = filterIgnoredFiles(parsedDiff);
-
+    const parsedDiff = parseDiff(diffData.data);
+    const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
     const fileChanges = await fetchFileContents(
       owner,
       repo,
       filteredDiff,
-      commitId
+      headCommitSha
+    );
+    const reviewComments = await generateReviewComments(
+      fileChanges,
+      headCommitSha
     );
 
-    console.log("fileChanges", fileChanges);
-
-    const reviewComments = await generateReviewComments(fileChanges, commitId);
+    console.log("Review comments:", reviewComments);
 
     await updateReviewComments(owner, repo, prNumber, reviewComments);
 
@@ -60,15 +62,39 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-function parseDiff(files) {
+async function getBaseCommitSha(owner, repo, headSha) {
+  const commits = await octokit.repos.listCommits({
+    owner,
+    repo,
+    sha: headSha,
+    per_page: 2,
+  });
+
+  // If there are more than one commit, return the SHA of the second one (base)
+  if (commits.data.length > 1) {
+    return commits.data[1].sha;
+  }
+
+  // If there's only one commit, return the head SHA
+  return headSha;
+}
+
+function parseDiff(diff) {
+  const files = diff.files;
   return files.map((file) => {
     const { filename, status, patch } = file;
-    const changes = patch
-      .split("\n")
-      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
-      .map((line) => ({ line: line.slice(1).trim() }));
+    const isNewFile = status === "added";
 
-    return { fileName: filename, isNewFile: status === "added", changes };
+    const changes = patch
+      ? patch
+          .split("\n")
+          .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+          .map((line) => ({
+            line: line.slice(1).trim(),
+          }))
+      : [];
+
+    return { fileName: filename, isNewFile, changes };
   });
 }
 
@@ -77,9 +103,9 @@ function filterIgnoredFiles(parsedDiff) {
   return parsedDiff.filter((file) => !ignoredFiles.includes(file.fileName));
 }
 
-async function fetchFileContents(owner, repo, filteredDiff, commitId) {
+async function fetchFileContents(owner, repo, parsedDiff, commitId) {
   return await Promise.all(
-    filteredDiff.map(async (file) => {
+    parsedDiff.map(async (file) => {
       const fileContent = await getFileContent(
         owner,
         repo,
@@ -109,8 +135,8 @@ async function generateReviewComments(fileChanges, commitId) {
 
   for (const { fileName, isNewFile, fileContent, changes } of fileChanges) {
     // const explanation = isNewFile
-    //   ? await getExplanationFromChatGPT(fileContent)
-    //   : await getExplanationFromChatGPT(fileContent, changes);
+    //   ? await getChatCompletion(openaiApiKey, fileContent)
+    //   : await getChatCompletion(openaiApiKey, fileContent, changes);
     comments.push({
       path: fileName,
       body: prefix + isNewFile,
@@ -121,7 +147,7 @@ async function generateReviewComments(fileChanges, commitId) {
   return comments;
 }
 
-async function getExplanationFromChatGPT(fileContent, changes = null) {
+async function getChatCompletion(fileContent, changes = null) {
   const messages = [
     {
       role: "system",
@@ -141,23 +167,28 @@ async function getExplanationFromChatGPT(fileContent, changes = null) {
     },
   ];
 
-  const response = await axios.post(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      model: "gpt-3.5-turbo",
-      messages,
-      max_tokens: 3896,
-      temperature: 0.4,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        "Content-Type": "application/json",
+  try {
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-3.5-turbo",
+        messages,
+        temperature: 0.4,
+        max_tokens: 3896,
       },
-    }
-  );
+      {
+        headers: {
+          Authorization: `Bearer ${openaiApiKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  return response.data.choices[0].message.content.trim();
+    return response.data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error("Error getting chat completion:", error);
+    throw error;
+  }
 }
 
 async function updateReviewComments(owner, repo, pullNumber, comments) {
