@@ -48,9 +48,9 @@ app.post("/webhook", async (req, res) => {
       commitId
     );
 
-    const reviewComments = await generateReviewComments(fileChanges, commitId);
+    console.log("fileChanges", fileChanges);
 
-    console.log("reviewComments", reviewComments);
+    const reviewComments = await generateReviewComments(fileChanges, commitId);
 
     await updateReviewComments(owner, repo, prNumber, reviewComments);
 
