@@ -48,6 +48,10 @@ app.post("/webhook", async (req, res) => {
 
     console.log("parsedDiff", parsedDiff);
 
+    parsedDiff.map((file) => {
+      console.log("fileChanges", file.changes[0]);
+    });
+
     // const fileChanges = await fetchFileContents(
     //   owner,
     //   repo,
