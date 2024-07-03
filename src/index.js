@@ -46,14 +46,14 @@ app.post("/webhook", async (req, res) => {
 
     const filteredDiff = filterIgnoredFiles(parsedDiff);
 
-    console.log("filteredDiff", filteredDiff);
+    const fileChanges = await fetchFileContents(
+      owner,
+      repo,
+      filteredDiff,
+      commitId
+    );
 
-    // const fileChanges = await fetchFileContents(
-    //   owner,
-    //   repo,
-    //   parsedDiff,
-    //   commitId
-    // );
+    console.log("fileChanges", fileChanges);
 
     // console.log("fileChanges", fileChanges);
 
@@ -86,9 +86,9 @@ function filterIgnoredFiles(parsedDiff) {
   return parsedDiff.filter((file) => !ignoredFiles.includes(file.fileName));
 }
 
-async function fetchFileContents(owner, repo, parsedDiff, commitId) {
+async function fetchFileContents(owner, repo, filteredDif, commitId) {
   return await Promise.all(
-    parsedDiff.map(async (file) => {
+    filteredDif.map(async (file) => {
       const fileContent = await getFileContent(
         owner,
         repo,
