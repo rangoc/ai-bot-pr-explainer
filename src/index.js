@@ -107,6 +107,10 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
   try {
     return await Promise.all(
       parsedDiff.map(async (file) => {
+        if (file.status === "removed") {
+          // Skip fetching content for removed files
+          return file;
+        }
         const fileContent = await getFileContent(
           owner,
           repo,
