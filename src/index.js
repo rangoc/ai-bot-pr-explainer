@@ -57,11 +57,11 @@ app.post("/webhook", async (req, res) => {
 
     console.log("fileChanges", fileChanges);
 
-    const reviewComments = await generateReviewComments(fileChanges, commitId);
+    // const reviewComments = await generateReviewComments(fileChanges, commitId);
 
     console.log("reviewComments", reviewComments);
 
-    await updateReviewComments(owner, repo, prNumber, reviewComments);
+    // await updateReviewComments(owner, repo, prNumber, reviewComments);
 
     res.status(200).send("Webhook received and processed");
   } else {
