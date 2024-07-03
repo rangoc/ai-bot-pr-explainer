@@ -48,18 +48,18 @@ app.post("/webhook", async (req, res) => {
 
     console.log("parsedDiff", parsedDiff);
 
-    const fileChanges = await fetchFileContents(
-      owner,
-      repo,
-      parsedDiff,
-      commitId
-    );
+    // const fileChanges = await fetchFileContents(
+    //   owner,
+    //   repo,
+    //   parsedDiff,
+    //   commitId
+    // );
 
-    console.log("fileChanges", fileChanges);
+    // console.log("fileChanges", fileChanges);
 
     // const reviewComments = await generateReviewComments(fileChanges, commitId);
 
-    console.log("reviewComments", reviewComments);
+    // console.log("reviewComments", reviewComments);
 
     // await updateReviewComments(owner, repo, prNumber, reviewComments);
 
