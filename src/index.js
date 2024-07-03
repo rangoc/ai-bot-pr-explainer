@@ -127,7 +127,7 @@ async function getExplanationFromChatGPT(fileContent, changes) {
   const prompt = `Here's a file with JavaScript code: - The following lines have been changed:\n\n${codeChanges}\n\nPlease explain these changes:`;
   // const prompt = `Here's a file with JavaScript code:\n\n${fileContent}\n\nThe following lines have been changed:\n\n${codeChanges}\n\nPlease explain these changes:`;
 
-  console.log("prompt", prompt);
+  console.log("prompt", prompt + (1 + 2));
   console.log("api called!");
   // const response = await axios.post(
   //   "https://api.openai.com/v1/completions",
