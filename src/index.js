@@ -11,6 +11,7 @@ const port = 3000;
 
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 const openaiApiKey = process.env.OPENAI_API_KEY;
+
 app.use(bodyParser.json());
 
 // Default GET endpoint
@@ -19,6 +20,8 @@ app.get("/", (req, res) => {
 });
 
 app.post("/webhook", async (req, res) => {
+  console.log("Received webhook:", req.body); // Log incoming request body
+
   const action = req.body.action;
   const pr = req.body.pull_request;
 
