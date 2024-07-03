@@ -80,7 +80,7 @@ function parseDiff(diff) {
     const fileName = fileHeader.split(" ")[1].slice(2); // Extract the file name
     const changes = diffLines
       .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
-      .map((line, index) => ({ line: line.slice(1), lineNumber: index + 1 }));
+      .map((line) => ({ line: line.slice(1).trim() }));
     return { fileName, changes };
   });
 }
