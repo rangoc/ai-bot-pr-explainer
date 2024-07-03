@@ -1,9 +1,10 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
-const { Octokit } = require("@octokit/rest");
-const diff = require("diff");
-require("dotenv").config(); // Add this line to load environment variables
+import express from "express";
+import bodyParser from "body-parser";
+import axios from "axios";
+import { Octokit } from "@octokit/rest";
+import dotenv from "dotenv";
+
+dotenv.config(); // Load environment variables
 
 const app = express();
 const port = 3000;
@@ -12,6 +13,11 @@ const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN }); // Use the envi
 const openaiApiKey = process.env.OPENAI_API_KEY; // Use the environment variable
 
 app.use(bodyParser.json());
+
+// Default GET endpoint
+app.get("/", (req, res) => {
+  res.send("You are running an AI Bot PR Code Explainer");
+});
 
 app.post("/webhook", async (req, res) => {
   const pr = req.body.pull_request;
