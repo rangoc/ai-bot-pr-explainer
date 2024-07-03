@@ -38,7 +38,7 @@ app.post("/webhook", async (req, res) => {
       },
     });
 
-    console.log("diffData", diffData.data);
+    // console.log("diffData", diffData.data);
 
     const commitId = pr.head.sha; // Get the latest commit SHA
 
