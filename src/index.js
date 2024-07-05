@@ -31,16 +31,16 @@ app.post("/webhook", async (req, res) => {
       const prNumber = pr.number;
 
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
-      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha);
+      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha); // Get the base commit SHA for comparison
 
       const diffData = await octokit.repos.compareCommits({
         owner,
         repo,
         base: baseCommitSha,
         head: headCommitSha,
-      });
+      }); // Compare the base and head commits to get the diff
 
-      const parsedDiff = parseDiff(diffData.data);
+      const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
       const fileChanges = await fetchFileContents(
@@ -48,21 +48,21 @@ app.post("/webhook", async (req, res) => {
         repo,
         filteredDiff,
         headCommitSha
-      );
+      ); // Fetch the content of each changed file
 
       const { comments, removedFiles } = await generateReviewComments(
         fileChanges,
         headCommitSha
-      );
+      ); // Generate review comments for the changed files
 
       const existingComments = await fetchExistingComments(
         owner,
         repo,
         prNumber
-      );
+      ); // Fetch existing comments on the pull request
 
-      await handleRemovedFiles(owner, repo, existingComments, removedFiles);
-      await postNewComments(owner, repo, prNumber, existingComments, comments);
+      await handleRemovedFiles(owner, repo, existingComments, removedFiles); // Delete comments for files that have been removed
+      await postNewComments(owner, repo, prNumber, existingComments, comments); // Post new comments for added and modified files
 
       res.status(200).send("Webhook received and processed");
     } else {
