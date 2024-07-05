@@ -20,101 +20,246 @@ app.get("/", (req, res) => {
 });
 
 app.post("/webhook", async (req, res) => {
-  console.log("Received webhook:", req.body); // Log incoming request body
+  try {
+    const action = req.body.action;
+    const pr = req.body.pull_request;
 
-  const action = req.body.action;
-  const pr = req.body.pull_request;
+    // React to 'opened' and 'synchronize' actions
+    if (pr && (action === "opened" || action === "synchronize")) {
+      const owner = pr.base.repo.owner.login;
+      const repo = pr.base.repo.name;
+      const prNumber = pr.number;
 
-  // React to 'opened' and 'synchronize' actions
-  if (pr && (action === "opened" || action === "synchronize")) {
-    const owner = pr.base.repo.owner.login;
-    const repo = pr.base.repo.name;
-    const prNumber = pr.number;
+      const headCommitSha = pr.head.sha; // Get the latest commit SHA
+      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha); // Get the base commit SHA for comparison
 
-    const diffData = await octokit.pulls.get({
-      owner,
-      repo,
-      pull_number: prNumber,
-      mediaType: {
-        format: "diff",
-      },
-    });
+      const diffData = await octokit.repos.compareCommits({
+        owner,
+        repo,
+        base: baseCommitSha,
+        head: headCommitSha,
+      }); // Compare the base and head commits to get the diff
 
-    const commitId = pr.head.sha; // Get the latest commit SHA
-    const changes = parseDiff(diffData.data);
-    const reviewComments = await generateReviewComments(changes, commitId);
+      const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
+      const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
-    await updateReviewComments(owner, repo, prNumber, reviewComments);
+      const fileChanges = await fetchFileContents(
+        owner,
+        repo,
+        filteredDiff,
+        headCommitSha
+      ); // Fetch the content of each changed file
 
-    res.status(200).send("Webhook received and processed");
-  } else {
-    res.status(400).send("Not a pull request event");
+      const { comments, removedFiles } = await generateReviewComments(
+        fileChanges,
+        headCommitSha
+      ); // Generate review comments for the changed files
+
+      const existingComments = await fetchExistingComments(
+        owner,
+        repo,
+        prNumber
+      ); // Fetch existing comments on the pull request
+
+      await handleRemovedFiles(owner, repo, existingComments, removedFiles); // Delete comments for files that have been removed
+      await postNewComments(owner, repo, prNumber, existingComments, comments); // Post new comments for added and modified files
+
+      res.status(200).send("Webhook received and processed");
+    } else {
+      res.status(400).send("Not a pull request event");
+    }
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    res.status(500).send("Internal server error");
   }
 });
 
-function parseDiff(diff) {
-  const files = diff.split("diff --git ").slice(1);
-  return files.map((fileDiff) => {
-    const [fileHeader, ...diffLines] = fileDiff.split("\n");
-    const fileName = fileHeader.split(" ")[1].slice(2); // Extract the file name
-    const changes = diffLines
-      .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
-      .map((line, index) => ({ line: line.slice(1), lineNumber: index + 1 }));
-    return { fileName, changes };
+async function getBaseCommitSha(owner, repo, headSha) {
+  const commits = await octokit.repos.listCommits({
+    owner,
+    repo,
+    sha: headSha,
+    per_page: 2,
   });
+
+  // If there are more than one commit, return the SHA of the second one (base)
+  if (commits.data.length > 1) {
+    return commits.data[1].sha;
+  }
+
+  // If there's only one commit, return the head SHA
+  return headSha;
+}
+
+function parseDiff(diff) {
+  const files = diff.files;
+  return files.map((file) => {
+    const { filename, status, patch } = file;
+
+    const changes = patch
+      ? patch
+          .split("\n")
+          .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+          .map((line) => ({
+            line: line.slice(1).trim(),
+          }))
+      : [];
+
+    return { fileName: filename, status, changes };
+  });
+}
+
+function filterIgnoredFiles(parsedDiff) {
+  const ignoredFiles = ["package.json", "package-lock.json"];
+  return parsedDiff.filter((file) => !ignoredFiles.includes(file.fileName));
+}
+
+async function fetchFileContents(owner, repo, parsedDiff, commitId) {
+  return await Promise.all(
+    parsedDiff.map(async (file) => {
+      try {
+        const fileContent = await getFileContent(
+          owner,
+          repo,
+          file.fileName,
+          commitId
+        );
+        return { ...file, fileContent };
+      } catch (error) {
+        if (error.status === 404) {
+          return { ...file, fileContent: null };
+        } else {
+          throw error;
+        }
+      }
+    })
+  ).then((results) => results.filter((file) => file !== null)); // Filter out null values
+}
+
+async function getFileContent(owner, repo, path, commitId) {
+  const result = await octokit.repos.getContent({
+    owner,
+    repo,
+    path,
+    ref: commitId, // Specify the commit SHA as the reference
+  });
+
+  const content = Buffer.from(result.data.content, "base64").toString("utf-8");
+  return content;
 }
 
 async function generateReviewComments(fileChanges, commitId) {
   const comments = [];
+  const removedFiles = [];
   const prefix = "This comment was generated by AI Bot:\n\n";
 
-  for (const { fileName, changes } of fileChanges) {
-    const explanation = await getExplanationFromChatGPT(
-      changes.map((change) => change.line).join("\n")
-    );
-    comments.push({
-      path: fileName,
-      body: prefix + explanation,
-      commit_id: commitId,
-      line: changes[0].lineNumber,
-    });
+  for (const { fileName, status, fileContent, changes } of fileChanges) {
+    let explanation = "";
+
+    if (status === "added") {
+      explanation = await getChatCompletion(fileContent);
+      comments.push({
+        path: fileName,
+        body: prefix + explanation,
+        commit_id: commitId,
+      });
+    } else if (status === "modified") {
+      explanation = await getChatCompletion(fileContent, changes);
+      comments.push({
+        path: fileName,
+        body: prefix + explanation,
+        commit_id: commitId,
+      });
+    } else if (status === "removed") {
+      removedFiles.push(fileName);
+    }
   }
 
-  return comments;
+  return { comments, removedFiles };
 }
 
-async function getExplanationFromChatGPT(code) {
-  const response = await axios.post(
-    "https://api.openai.com/v1/completions",
+async function getChatCompletion(fileContent, changes = null) {
+  const messages = [
     {
-      model: "text-davinci-003", // Use the appropriate model name
-      prompt: `Explain the following JavaScript code changes:\n\n${code}\n\nExplanation:`,
-      max_tokens: 150,
-      n: 1,
-      stop: null,
-      temperature: 0.7,
+      role: "system",
+      content:
+        "You are a Javascript expert. Give explanation in 4 or less short sentences.",
     },
     {
-      headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+      role: "user",
+      content: `Here's a file with JavaScript code:\n\n${fileContent}\n\n${
+        changes
+          ? `The following lines have been changed:\n\n
+          ${changes
+            .map((change) => change.line)
+            .join("\n")}\n\nPlease explain these changes:`
+          : "Please provide an overview of this file."
+      }`,
+    },
+  ];
 
-  return response.data.choices[0].text.trim();
+  try {
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-3.5-turbo",
+        messages,
+        temperature: 0.4,
+        max_tokens: 3896,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${openaiApiKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return response.data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error("Error getting chat completion:", error);
+    throw error;
+  }
 }
 
-async function updateReviewComments(owner, repo, pullNumber, comments) {
+async function fetchExistingComments(owner, repo, pullNumber) {
   const existingComments = await octokit.pulls.listReviewComments({
     owner,
     repo,
     pull_number: pullNumber,
   });
 
+  return existingComments.data;
+}
+
+async function handleRemovedFiles(owner, repo, existingComments, removedFiles) {
+  for (const fileName of removedFiles) {
+    const existingComment = existingComments.find(
+      (c) =>
+        c.path === fileName &&
+        c.body.startsWith("This comment was generated by AI Bot:")
+    );
+
+    if (existingComment) {
+      await octokit.pulls.deleteReviewComment({
+        owner,
+        repo,
+        comment_id: existingComment.id,
+      });
+    }
+  }
+}
+
+async function postNewComments(
+  owner,
+  repo,
+  pullNumber,
+  existingComments,
+  comments
+) {
   for (const comment of comments) {
     // Check if there is an existing comment for this path
-    const existingComment = existingComments.data.find(
+    const existingComment = existingComments.find(
       (c) =>
         c.path === comment.path &&
         c.body.startsWith("This comment was generated by AI Bot:")
@@ -137,7 +282,7 @@ async function updateReviewComments(owner, repo, pullNumber, comments) {
       body: comment.body,
       path: comment.path,
       commit_id: comment.commit_id,
-      line: comment.line,
+      subject_type: "file",
     });
   }
 }
