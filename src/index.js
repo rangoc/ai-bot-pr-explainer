@@ -48,6 +48,9 @@ app.post("/webhook", async (req, res) => {
         filteredDiff,
         headCommitSha
       );
+
+      console.log("File changes:", fileChanges);
+
       const reviewComments = await generateReviewComments(
         fileChanges,
         headCommitSha
