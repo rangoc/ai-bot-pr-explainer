@@ -42,6 +42,8 @@ app.post("/webhook", async (req, res) => {
 
       const parsedDiff = parseDiff(diffData.data);
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
+      console.log("Filtered Diff:", filteredDiff);
+
       const fileChanges = await fetchFileContents(
         owner,
         repo,
