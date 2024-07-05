@@ -209,6 +209,8 @@ async function updateReviewComments(owner, repo, pullNumber, comments) {
     pull_number: pullNumber,
   });
 
+  console.log("Existing comments:", existingComments.data);
+
   for (const comment of comments) {
     // Check if there is an existing comment for this path
     const existingComment = existingComments.data.find(
