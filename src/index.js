@@ -42,7 +42,6 @@ app.post("/webhook", async (req, res) => {
 
       const parsedDiff = parseDiff(diffData.data);
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
-      console.log("Filtered Diff:", filteredDiff);
 
       const fileChanges = await fetchFileContents(
         owner,
@@ -51,15 +50,10 @@ app.post("/webhook", async (req, res) => {
         headCommitSha
       );
 
-      console.log("File changes:", fileChanges);
-
       const { comments, removedFiles } = await generateReviewComments(
         fileChanges,
         headCommitSha
       );
-
-      console.log("Review comments:", comments);
-      console.log("Removed files:", removedFiles);
 
       const existingComments = await fetchExistingComments(
         owner,
