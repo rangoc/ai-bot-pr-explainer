@@ -94,7 +94,7 @@ async function getBaseCommitSha(owner, repo, headSha) {
 function parseDiff(diff) {
   const files = diff.files;
   return files.map((file) => {
-    const { filename, status, patch } = file;
+    const { filename, status } = file;
 
     return { fileName: filename, status };
   });
