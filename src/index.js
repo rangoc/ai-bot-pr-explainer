@@ -147,7 +147,7 @@ async function generateReviewComments(fileChanges, commitId) {
   for (const { fileName, status, fileContent } of fileChanges) {
     let explanation = "";
     console.log("file", { fileName, status, fileContent });
-    if (status === "added" || status === "modified") {
+    if (status === "added" || status === "modified" || status === "renamed") {
       explanation = await getChatCompletion(fileContent);
       comments.push({
         path: fileName,
