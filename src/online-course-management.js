@@ -25,15 +25,6 @@ class OnlineCourseManagementSystem {
     return newStudent;
   }
 
-  removeStudent(id) {
-    const index = this.students.findIndex((student) => student.id === id);
-    if (index !== -1) {
-      return this.students.splice(index, 1)[0];
-    } else {
-      throw new Error("Student not found");
-    }
-  }
-
   // Methods for Instructors
   addInstructor(name, email) {
     const newInstructor = {
