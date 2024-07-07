@@ -34,28 +34,6 @@ class OnlineCourseManagementSystem {
     }
   }
 
-  // Methods for Instructors
-  addInstructor(name, email) {
-    const newInstructor = {
-      id: this.currentInstructorId++,
-      name: name,
-      email: email,
-    };
-    this.instructors.push(newInstructor);
-    return newInstructor;
-  }
-
-  removeInstructor(id) {
-    const index = this.instructors.findIndex(
-      (instructor) => instructor.id === id
-    );
-    if (index !== -1) {
-      return this.instructors.splice(index, 1)[0];
-    } else {
-      throw new Error("Instructor not found");
-    }
-  }
-
   // Methods for Courses
   addCourse(title, description) {
     const newCourse = {
@@ -67,18 +45,6 @@ class OnlineCourseManagementSystem {
     };
     this.courses.push(newCourse);
     return newCourse;
-  }
-
-  assignInstructorToCourse(courseId, instructorId) {
-    const course = this.courses.find((course) => course.id === courseId);
-    const instructor = this.instructors.find(
-      (instructor) => instructor.id === instructorId
-    );
-    if (course && instructor) {
-      course.instructorId = instructorId;
-    } else {
-      throw new Error("Course or Instructor not found");
-    }
   }
 
   enrollStudentInCourse(courseId, studentId) {
@@ -182,10 +148,6 @@ class OnlineCourseManagementSystem {
     return this.students;
   }
 
-  listInstructors() {
-    return this.instructors;
-  }
-
   listEnrollments() {
     return this.enrollments;
   }
@@ -198,29 +160,3 @@ class OnlineCourseManagementSystem {
     return this.certificates;
   }
 }
-
-// Example usage
-const ocms = new OnlineCourseManagementSystem();
-const student1 = ocms.addStudent("Alice", "alice@example.com");
-const student2 = ocms.addStudent("Bob", "bob@example.com");
-const instructor1 = ocms.addInstructor("Dr. Smith", "smith@example.com");
-const course1 = ocms.addCourse("JavaScript 101", "Introduction to JavaScript");
-ocms.assignInstructorToCourse(course1.id, instructor1.id);
-ocms.enrollStudentInCourse(course1.id, student1.id);
-ocms.enrollStudentInCourse(course1.id, student2.id);
-const assignment1 = ocms.addAssignment(
-  course1.id,
-  student1.id,
-  "Homework 1",
-  "2024-07-10"
-);
-ocms.gradeAssignment(assignment1.id, 95);
-const assignment2 = ocms.addAssignment(
-  course1.id,
-  student2.id,
-  "Homework 1",
-  "2024-07-10"
-);
-ocms.gradeAssignment(assignment2.id, 85);
-const certificate = ocms.generateCertificate(student1.id, course1.id);
-console.log("Certificates:", ocms.listCertificates());
