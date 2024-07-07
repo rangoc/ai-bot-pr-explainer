@@ -34,28 +34,6 @@ class OnlineCourseManagementSystem {
     }
   }
 
-  // Methods for Instructors
-  addInstructor(name, email) {
-    const newInstructor = {
-      id: this.currentInstructorId++,
-      name: name,
-      email: email,
-    };
-    this.instructors.push(newInstructor);
-    return newInstructor;
-  }
-
-  removeInstructor(id) {
-    const index = this.instructors.findIndex(
-      (instructor) => instructor.id === id
-    );
-    if (index !== -1) {
-      return this.instructors.splice(index, 1)[0];
-    } else {
-      throw new Error("Instructor not found");
-    }
-  }
-
   // Methods for Courses
   addCourse(title, description) {
     const newCourse = {
@@ -67,18 +45,6 @@ class OnlineCourseManagementSystem {
     };
     this.courses.push(newCourse);
     return newCourse;
-  }
-
-  assignInstructorToCourse(courseId, instructorId) {
-    const course = this.courses.find((course) => course.id === courseId);
-    const instructor = this.instructors.find(
-      (instructor) => instructor.id === instructorId
-    );
-    if (course && instructor) {
-      course.instructorId = instructorId;
-    } else {
-      throw new Error("Course or Instructor not found");
-    }
   }
 
   enrollStudentInCourse(courseId, studentId) {
