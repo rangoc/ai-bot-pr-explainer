@@ -43,13 +43,6 @@ app.post("/webhook", async (req, res) => {
       const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
-      console.log(
-        "filteredDiff",
-        filteredDiff.map((f) =>
-          f.changes.map((c) => console.log("line:", c.line))
-        )
-      );
-
       const fileChanges = await fetchFileContents(
         owner,
         repo,
@@ -96,6 +89,8 @@ function parseDiff(diff) {
   return files.map((file) => {
     const { filename, status, patch } = file;
 
+    console.log("file", { filename, status, patch });
+
     const changes = patch
       ? patch
           .split("\n")
@@ -104,6 +99,8 @@ function parseDiff(diff) {
             line: line.slice(1).trim(),
           }))
       : [];
+
+    console.log("changes", changes);
 
     return { fileName: filename, status, changes };
   });
