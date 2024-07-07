@@ -1,13 +1,11 @@
 class OnlineCourseManagementSystem {
   constructor() {
     this.students = [];
-    this.instructors = [];
     this.courses = [];
     this.enrollments = [];
     this.assignments = [];
     this.certificates = [];
     this.currentStudentId = 1;
-    this.currentInstructorId = 1;
     this.currentCourseId = 1;
     this.currentEnrollmentId = 1;
     this.currentAssignmentId = 1;
@@ -40,7 +38,6 @@ class OnlineCourseManagementSystem {
       id: this.currentCourseId++,
       title: title,
       description: description,
-      instructorId: null,
       students: [],
     };
     this.courses.push(newCourse);
@@ -148,10 +145,6 @@ class OnlineCourseManagementSystem {
     return this.students;
   }
 
-  listInstructors() {
-    return this.instructors;
-  }
-
   listEnrollments() {
     return this.enrollments;
   }
@@ -169,9 +162,7 @@ class OnlineCourseManagementSystem {
 const ocms = new OnlineCourseManagementSystem();
 const student1 = ocms.addStudent("Alice", "alice@example.com");
 const student2 = ocms.addStudent("Bob", "bob@example.com");
-const instructor1 = ocms.addInstructor("Dr. Smith", "smith@example.com");
 const course1 = ocms.addCourse("JavaScript 101", "Introduction to JavaScript");
-ocms.assignInstructorToCourse(course1.id, instructor1.id);
 ocms.enrollStudentInCourse(course1.id, student1.id);
 ocms.enrollStudentInCourse(course1.id, student2.id);
 const assignment1 = ocms.addAssignment(
