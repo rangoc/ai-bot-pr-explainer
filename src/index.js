@@ -96,7 +96,7 @@ function parseDiff(diff) {
   return files.map((file) => {
     const { filename, status, patch } = file;
 
-    return { fileName: filename, status, changes };
+    return { fileName: filename, status };
   });
 }
 
