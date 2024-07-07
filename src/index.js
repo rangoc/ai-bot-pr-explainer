@@ -30,15 +30,15 @@ app.post("/webhook", async (req, res) => {
       const repo = pr.base.repo.name;
       const prNumber = pr.number;
 
-      const headCommitSha = pr.head.sha; // Get the latest commit SHA on the feature branch
-      const baseCommitSha = await getBaseCommitShaFromMainBranch(owner, repo); // Get the latest commit SHA from the main branch
+      const headCommitSha = pr.head.sha; // Get the latest commit SHA
+      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha); // Get the base commit SHA for comparison
 
       const diffData = await octokit.repos.compareCommits({
         owner,
         repo,
         base: baseCommitSha,
         head: headCommitSha,
-      }); // Compare the base commit from the main branch and the head commit to get the diff
+      }); // Compare the base and head commits to get the diff
 
       const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
@@ -74,14 +74,21 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-async function getBaseCommitShaFromMainBranch(owner, repo) {
-  const mainBranch = await octokit.repos.getBranch({
+async function getBaseCommitSha(owner, repo, headSha) {
+  const commits = await octokit.repos.listCommits({
     owner,
     repo,
-    branch: "main",
+    sha: headSha,
+    per_page: 2,
   });
 
-  return mainBranch.data.commit.sha;
+  // If there are more than one commit, return the SHA of the second one (base)
+  if (commits.data.length > 1) {
+    return commits.data[1].sha;
+  }
+
+  // If there's only one commit, return the head SHA
+  return headSha;
 }
 
 function parseDiff(diff) {
