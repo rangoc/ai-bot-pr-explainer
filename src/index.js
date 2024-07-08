@@ -1,49 +1,88 @@
 import express from "express";
 import bodyParser from "body-parser";
 import axios from "axios";
-import { Octokit } from "@octokit/rest";
+import { App } from "@octokit/app";
+import { createNodeMiddleware } from "@octokit/webhooks";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config(); // Load environment variables
 
 const app = express();
 const port = 3000;
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+// Read the private key file
+const privateKey = fs.readFileSync(
+  `${process.env.HOME}/Desktop/Work/Dlabs/Hackaton/chadreviewer.2024-07-08.private-key.pem`,
+  "utf8"
+);
+
+const githubApp = new App({
+  appId: process.env.GITHUB_APP_ID, // Your GitHub App ID
+  privateKey: privateKey, // The private key content
+});
+
+const installationId = process.env.GITHUB_APP_INSTALLATION_ID; // Your installation ID
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 app.use(bodyParser.json());
 
-// Default GET endpoint
 app.get("/", (req, res) => {
   res.send("You are running an AI Bot PR Code Explainer");
 });
 
+// Simplified webhook handler for testing
 app.post("/webhook", async (req, res) => {
-  try {
-    const action = req.body.action;
-    const pr = req.body.pull_request;
+  // Manually verify the webhook signature
+  const event = req.headers["x-github-event"];
 
-    // React to 'opened' and 'synchronize' actions
+  // Simulate event handling
+  if (event === "pull_request") {
+    const action = req.body.action;
+
+    if ((action === "opened") | (action === "synchronize")) {
+      await handlePullRequest({ payload: req.body });
+    }
+  }
+
+  res.status(200).send("Webhook received");
+});
+
+async function handlePullRequest({ payload }) {
+  try {
+    const action = payload.action;
+    const pr = payload.pull_request;
+
     if (pr && (action === "opened" || action === "synchronize")) {
       const owner = pr.base.repo.owner.login;
       const repo = pr.base.repo.name;
       const prNumber = pr.number;
 
-      const headCommitSha = pr.head.sha; // Get the latest commit SHA
-      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha); // Get the base commit SHA for comparison
+      // Get the Octokit instance for the specific installation
+      const octokit = await githubApp.getInstallationOctokit(installationId);
 
-      const diffData = await octokit.repos.compareCommits({
+      if (!octokit) {
+        throw new Error("Failed to obtain Octokit instance");
+      }
+
+      const headCommitSha = pr.head.sha; // Get the latest commit SHA
+      const baseCommitSha = await getBaseCommitSha(
+        octokit,
         owner,
         repo,
-        base: baseCommitSha,
-        head: headCommitSha,
-      }); // Compare the base and head commits to get the diff
+        headCommitSha
+      ); // Get the base commit SHA for comparison
+
+      const diffData = await octokit.request(
+        `GET /repos/${owner}/${repo}/compare/${baseCommitSha}...${headCommitSha}`
+      ); // Compare the base and head commits to get the diff
 
       const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
+
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
       const fileChanges = await fetchFileContents(
+        octokit,
         owner,
         repo,
         filteredDiff,
@@ -55,36 +94,52 @@ app.post("/webhook", async (req, res) => {
         headCommitSha
       ); // Generate review comments for the changed files
 
+      // Ensure no duplicate comments
+      const uniqueComments = Array.from(
+        new Set(comments.map((c) => JSON.stringify(c)))
+      ).map((str) => JSON.parse(str));
+
       const existingComments = await fetchExistingComments(
+        octokit,
         owner,
         repo,
         prNumber
       ); // Fetch existing comments on the pull request
 
-      await handleRemovedFiles(owner, repo, existingComments, removedFiles); // Delete comments for files that have been removed
-      await postNewComments(owner, repo, prNumber, existingComments, comments); // Post new comments for added and modified files
+      await handleRemovedFiles(
+        octokit,
+        owner,
+        repo,
+        existingComments,
+        removedFiles
+      ); // Delete comments for files that have been removed
 
-      res.status(200).send("Webhook received and processed");
-    } else {
-      res.status(400).send("Not a pull request event");
+      await postNewComments(
+        octokit,
+        owner,
+        repo,
+        prNumber,
+        existingComments,
+        uniqueComments
+      ); // Post new comments for added and modified files
     }
   } catch (error) {
-    console.error("Error processing webhook:", error);
-    res.status(500).send("Internal server error");
+    console.error("Error processing pull request:", error);
   }
-});
+}
 
-async function getBaseCommitSha(owner, repo, headSha) {
-  const commits = await octokit.repos.listCommits({
-    owner,
-    repo,
-    sha: headSha,
-    per_page: 2,
-  });
+async function getBaseCommitSha(octokit, owner, repo, headSha) {
+  const { data: commits } = await octokit.request(
+    `GET /repos/${owner}/${repo}/commits`,
+    {
+      sha: headSha,
+      per_page: 2,
+    }
+  );
 
   // If there are more than one commit, return the SHA of the second one (base)
-  if (commits.data.length > 1) {
-    return commits.data[1].sha;
+  if (commits.length > 1) {
+    return commits[1].sha;
   }
 
   // If there's only one commit, return the head SHA
@@ -105,11 +160,12 @@ function filterIgnoredFiles(parsedDiff) {
   return parsedDiff.filter((file) => !ignoredFiles.includes(file.fileName));
 }
 
-async function fetchFileContents(owner, repo, parsedDiff, commitId) {
+async function fetchFileContents(octokit, owner, repo, parsedDiff, commitId) {
   return await Promise.all(
     parsedDiff.map(async (file) => {
       try {
         const fileContent = await getFileContent(
+          octokit,
           owner,
           repo,
           file.fileName,
@@ -127,13 +183,13 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
   ).then((results) => results.filter((file) => file !== null)); // Filter out null values
 }
 
-async function getFileContent(owner, repo, path, commitId) {
-  const result = await octokit.repos.getContent({
-    owner,
-    repo,
-    path,
-    ref: commitId, // Specify the commit SHA as the reference
-  });
+async function getFileContent(octokit, owner, repo, path, commitId) {
+  const result = await octokit.request(
+    `GET /repos/${owner}/${repo}/contents/${path}`,
+    {
+      ref: commitId, // Specify the commit SHA as the reference
+    }
+  );
 
   const content = Buffer.from(result.data.content, "base64").toString("utf-8");
   return content;
@@ -207,17 +263,21 @@ async function getChatCompletion(fileContent) {
   }
 }
 
-async function fetchExistingComments(owner, repo, pullNumber) {
-  const existingComments = await octokit.pulls.listReviewComments({
-    owner,
-    repo,
-    pull_number: pullNumber,
-  });
+async function fetchExistingComments(octokit, owner, repo, pullNumber) {
+  const existingComments = await octokit.request(
+    `GET /repos/${owner}/${repo}/pulls/${pullNumber}/comments`
+  );
 
   return existingComments.data;
 }
 
-async function handleRemovedFiles(owner, repo, existingComments, removedFiles) {
+async function handleRemovedFiles(
+  octokit,
+  owner,
+  repo,
+  existingComments,
+  removedFiles
+) {
   for (const fileName of removedFiles) {
     const existingComment = existingComments.find(
       (c) =>
@@ -226,16 +286,20 @@ async function handleRemovedFiles(owner, repo, existingComments, removedFiles) {
     );
 
     if (existingComment) {
-      await octokit.pulls.deleteReviewComment({
-        owner,
-        repo,
-        comment_id: existingComment.id,
-      });
+      await octokit.request(
+        "DELETE /repos/{owner}/{repo}/pulls/comments/{comment_id}",
+        {
+          owner,
+          repo,
+          comment_id: existingComment.id,
+        }
+      );
     }
   }
 }
 
 async function postNewComments(
+  octokit,
   owner,
   repo,
   pullNumber,
@@ -252,23 +316,37 @@ async function postNewComments(
 
     if (existingComment) {
       // Delete the existing comment
-      await octokit.pulls.deleteReviewComment({
-        owner,
-        repo,
-        comment_id: existingComment.id,
-      });
+      try {
+        await octokit.request(
+          "DELETE /repos/{owner}/{repo}/pulls/comments/{comment_id}",
+          {
+            owner,
+            repo,
+            comment_id: existingComment.id,
+          }
+        );
+      } catch (error) {
+        console.error("Error deleting comment:", error);
+      }
     }
 
     // Post the new comment
-    await octokit.pulls.createReviewComment({
-      owner,
-      repo,
-      pull_number: pullNumber,
-      body: comment.body,
-      path: comment.path,
-      commit_id: comment.commit_id,
-      subject_type: "file",
-    });
+    try {
+      await octokit.request(
+        `POST /repos/{owner}/{repo}/pulls/{pull_number}/comments`,
+        {
+          owner,
+          repo,
+          pull_number: pullNumber,
+          body: comment.body,
+          path: comment.path,
+          commit_id: comment.commit_id,
+          subject_type: "file",
+        }
+      );
+    } catch (error) {
+      console.error("Error posting comment:", error);
+    }
   }
 }
 
