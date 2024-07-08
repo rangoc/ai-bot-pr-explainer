@@ -98,7 +98,13 @@ async function handlePullRequest({ payload }) {
         headCommitSha
       ); // Generate review comments for the changed files
 
-      console.log("Comments:", comments);
+      console.log("Comments before filtering:", comments);
+
+      // Ensure no duplicate comments
+      const uniqueComments = Array.from(
+        new Set(comments.map((c) => JSON.stringify(c)))
+      ).map((str) => JSON.parse(str));
+      console.log("Unique comments:", uniqueComments);
 
       const existingComments = await fetchExistingComments(
         octokit,
@@ -121,7 +127,7 @@ async function handlePullRequest({ payload }) {
         repo,
         prNumber,
         existingComments,
-        comments
+        uniqueComments
       ); // Post new comments for added and modified files
     }
   } catch (error) {
