@@ -313,7 +313,7 @@ async function postNewComments(
     if (existingComment) {
       // Delete the existing comment
       await octokit.request(
-        `DELETE /repos/{owner}/{repo}/pulls/comments/{commentId}`,
+        "DELETE /repos/{owner}/{repo}/pulls/comments/{commentId}",
         {
           owner,
           repo,
