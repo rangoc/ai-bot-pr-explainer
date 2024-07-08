@@ -20,9 +20,6 @@ const privateKey = fs.readFileSync(
 const githubApp = new App({
   appId: process.env.GITHUB_APP_ID, // Your GitHub App ID
   privateKey: privateKey, // The private key content
-  webhooks: {
-    secret: process.env.GITHUB_WEBHOOK_SECRET,
-  },
 });
 
 const installationId = process.env.GITHUB_APP_INSTALLATION_ID; // Your installation ID
