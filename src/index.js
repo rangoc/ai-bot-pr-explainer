@@ -50,6 +50,8 @@ app.post("/webhook", async (req, res) => {
         throw new Error("Failed to obtain Octokit instance");
       }
 
+      console.log("octokit", octokit);
+
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
       const baseCommitSha = await getBaseCommitSha(
         octokit,
