@@ -44,9 +44,8 @@ app.post("/webhook", async (req, res) => {
   // Simulate event handling
   if (event === "pull_request") {
     const action = req.body.action;
-    console.log("Action:", action);
 
-    if (action === "synchronize") {
+    if ((action = "opened" | (action === "synchronize"))) {
       await handlePullRequest({ payload: req.body });
     }
   }
@@ -101,13 +100,10 @@ async function handlePullRequest({ payload }) {
         headCommitSha
       ); // Generate review comments for the changed files
 
-      console.log("Comments before filtering:", comments);
-
       // Ensure no duplicate comments
       const uniqueComments = Array.from(
         new Set(comments.map((c) => JSON.stringify(c)))
       ).map((str) => JSON.parse(str));
-      console.log("Unique comments:", uniqueComments);
 
       const existingComments = await fetchExistingComments(
         octokit,
@@ -297,7 +293,12 @@ async function handleRemovedFiles(
 
     if (existingComment) {
       await octokit.request(
-        `DELETE /repos/${owner}/${repo}/pulls/comments/${existingComment.id}`
+        "DELETE /repos/{owner}/{repo}/pulls/comments/{comment_id}",
+        {
+          owner,
+          repo,
+          comment_id: existingComment.id,
+        }
       );
     }
   }
