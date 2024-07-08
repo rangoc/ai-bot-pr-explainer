@@ -34,25 +34,48 @@ app.get("/", (req, res) => {
   res.send("You are running an AI Bot PR Code Explainer");
 });
 
-//  Middleware to handle GitHub webhooks
-app.post(
-  "/webhook",
-  (req, res, next) => {
-    console.log("Received a webhook request");
-    next();
-  },
-  createNodeMiddleware(githubApp, {
-    path: "/webhook",
-    onUnhandledRequest: (req, res) => {
-      console.log("Unhandled request:", req.method, req.url);
-      res.status(404).send("Unhandled request");
-    },
-    onError: (error, req, res) => {
-      console.error("Webhook error:", error);
-      res.status(500).send("Webhook error");
-    },
-  })
-);
+// Simplified webhook handler for testing
+app.post("/webhook", (req, res) => {
+  console.log("Received a webhook request");
+
+  // Print the payload for debugging
+  console.log("Payload:", JSON.stringify(req.body, null, 2));
+
+  // Manually verify the webhook signature
+  const signature = req.headers["x-hub-signature-256"];
+  const event = req.headers["x-github-event"];
+  console.log("Signature:", signature);
+  console.log("Event:", event);
+
+  if (!signature) {
+    res.status(400).send("Missing signature");
+    return;
+  }
+
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  const crypto = require("crypto");
+
+  const payload = JSON.stringify(req.body);
+  const hmac = crypto.createHmac("sha256", secret);
+  const digest = `sha256=${hmac.update(payload).digest("hex")}`;
+
+  if (signature !== digest) {
+    res.status(401).send("Invalid signature");
+    return;
+  }
+
+  console.log("Signature verified");
+
+  // Simulate event handling
+  if (event === "pull_request") {
+    const action = req.body.action;
+    if (action === "opened" || action === "synchronize") {
+      handlePullRequest({ payload: req.body });
+    }
+  }
+
+  res.status(200).send("Webhook received");
+});
 
 // Registering the event handlers
 githubApp.webhooks.on("pull_request.opened", async (event) => {
