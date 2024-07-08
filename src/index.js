@@ -41,7 +41,17 @@ app.post(
     console.log("Received a webhook request");
     next();
   },
-  createNodeMiddleware(githubApp, { path: "/webhook" })
+  createNodeMiddleware(githubApp, {
+    path: "/webhook",
+    onUnhandledRequest: (req, res) => {
+      console.log("Unhandled request:", req.method, req.url);
+      res.status(404).send("Unhandled request");
+    },
+    onError: (error, req, res) => {
+      console.error("Webhook error:", error);
+      res.status(500).send("Webhook error");
+    },
+  })
 );
 
 // Registering the event handlers
