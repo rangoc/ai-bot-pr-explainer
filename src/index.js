@@ -1,15 +1,28 @@
 import express from "express";
 import bodyParser from "body-parser";
 import axios from "axios";
-import { Octokit } from "@octokit/rest";
+import { App } from "@octokit/app";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config(); // Load environment variables
 
 const app = express();
 const port = 3000;
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+// Read the private key file
+const privateKey = fs.readFileSync(
+  "/Users/gorancabarkapa/Desktop/Work/Dlabs/Hackaton/chadreviewer.2024-07-08.private-key.pem",
+  "utf8"
+);
+
+const githubApp = new App({
+  appId: process.env.GITHUB_APP_ID, // Your GitHub App ID
+  privateKey, // The private key content
+});
+
+const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
+
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 app.use(bodyParser.json());
@@ -30,8 +43,16 @@ app.post("/webhook", async (req, res) => {
       const repo = pr.base.repo.name;
       const prNumber = pr.number;
 
+      // Get the Octokit instance for the specific installation
+      const octokit = await githubApp.getInstallationOctokit(installationId);
+
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
-      const baseCommitSha = await getBaseCommitSha(owner, repo, headCommitSha); // Get the base commit SHA for comparison
+      const baseCommitSha = await getBaseCommitSha(
+        octokit,
+        owner,
+        repo,
+        headCommitSha
+      ); // Get the base commit SHA for comparison
 
       const diffData = await octokit.repos.compareCommits({
         owner,
@@ -44,6 +65,7 @@ app.post("/webhook", async (req, res) => {
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
       const fileChanges = await fetchFileContents(
+        octokit,
         owner,
         repo,
         filteredDiff,
@@ -56,13 +78,27 @@ app.post("/webhook", async (req, res) => {
       ); // Generate review comments for the changed files
 
       const existingComments = await fetchExistingComments(
+        octokit,
         owner,
         repo,
         prNumber
       ); // Fetch existing comments on the pull request
 
-      await handleRemovedFiles(owner, repo, existingComments, removedFiles); // Delete comments for files that have been removed
-      await postNewComments(owner, repo, prNumber, existingComments, comments); // Post new comments for added and modified files
+      await handleRemovedFiles(
+        octokit,
+        owner,
+        repo,
+        existingComments,
+        removedFiles
+      ); // Delete comments for files that have been removed
+      await postNewComments(
+        octokit,
+        owner,
+        repo,
+        prNumber,
+        existingComments,
+        comments
+      ); // Post new comments for added and modified files
 
       res.status(200).send("Webhook received and processed");
     } else {
@@ -74,7 +110,7 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-async function getBaseCommitSha(owner, repo, headSha) {
+async function getBaseCommitSha(octokit, owner, repo, headSha) {
   const commits = await octokit.repos.listCommits({
     owner,
     repo,
@@ -105,11 +141,12 @@ function filterIgnoredFiles(parsedDiff) {
   return parsedDiff.filter((file) => !ignoredFiles.includes(file.fileName));
 }
 
-async function fetchFileContents(owner, repo, parsedDiff, commitId) {
+async function fetchFileContents(octokit, owner, repo, parsedDiff, commitId) {
   return await Promise.all(
     parsedDiff.map(async (file) => {
       try {
         const fileContent = await getFileContent(
+          octokit,
           owner,
           repo,
           file.fileName,
@@ -127,7 +164,7 @@ async function fetchFileContents(owner, repo, parsedDiff, commitId) {
   ).then((results) => results.filter((file) => file !== null)); // Filter out null values
 }
 
-async function getFileContent(owner, repo, path, commitId) {
+async function getFileContent(octokit, owner, repo, path, commitId) {
   const result = await octokit.repos.getContent({
     owner,
     repo,
@@ -207,7 +244,7 @@ async function getChatCompletion(fileContent) {
   }
 }
 
-async function fetchExistingComments(owner, repo, pullNumber) {
+async function fetchExistingComments(octokit, owner, repo, pullNumber) {
   const existingComments = await octokit.pulls.listReviewComments({
     owner,
     repo,
@@ -217,7 +254,13 @@ async function fetchExistingComments(owner, repo, pullNumber) {
   return existingComments.data;
 }
 
-async function handleRemovedFiles(owner, repo, existingComments, removedFiles) {
+async function handleRemovedFiles(
+  octokit,
+  owner,
+  repo,
+  existingComments,
+  removedFiles
+) {
   for (const fileName of removedFiles) {
     const existingComment = existingComments.find(
       (c) =>
@@ -236,6 +279,7 @@ async function handleRemovedFiles(owner, repo, existingComments, removedFiles) {
 }
 
 async function postNewComments(
+  octokit,
   owner,
   repo,
   pullNumber,
