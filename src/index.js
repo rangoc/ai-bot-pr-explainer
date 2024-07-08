@@ -28,13 +28,6 @@ const githubApp = new App({
 const installationId = process.env.GITHUB_APP_INSTALLATION_ID; // Your installation ID
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
-console.log("Secrets", {
-  GITHUB_APP_ID: process.env.GITHUB_APP_ID,
-  GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET,
-  GITHUB_INSTALLATION_ID: process.env.GITHUB_APP_INSTALLATION_ID,
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-});
-
 app.use(bodyParser.json());
 
 app.get("/", (req, res) => {
@@ -56,6 +49,7 @@ async function handlePullRequest({ payload }) {
       const repo = pr.base.repo.name;
       const prNumber = pr.number;
 
+      console.log(`Processing pull request #${prNumber} in ${owner}/${repo}`);
       // Get the Octokit instance for the specific installation
       const octokit = await githubApp.getInstallationOctokit(installationId);
 
