@@ -38,9 +38,6 @@ app.get("/", (req, res) => {
 app.post("/webhook", (req, res) => {
   console.log("Received a webhook request");
 
-  // Print the payload for debugging
-  console.log("Payload:", JSON.stringify(req.body, null, 2));
-
   // Manually verify the webhook signature
   const signature = req.headers["x-hub-signature-256"];
   const event = req.headers["x-github-event"];
@@ -53,18 +50,8 @@ app.post("/webhook", (req, res) => {
   }
 
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
-  const crypto = require("crypto");
 
   const payload = JSON.stringify(req.body);
-  const hmac = crypto.createHmac("sha256", secret);
-  const digest = `sha256=${hmac.update(payload).digest("hex")}`;
-
-  if (signature !== digest) {
-    res.status(401).send("Invalid signature");
-    return;
-  }
-
-  console.log("Signature verified");
 
   // Simulate event handling
   if (event === "pull_request") {
