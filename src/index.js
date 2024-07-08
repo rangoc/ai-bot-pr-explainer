@@ -21,7 +21,7 @@ const githubApp = new App({
   privateKey: privateKey, // The private key content
 });
 
-const installationId = process.env.GITHUB_INSTALLATION_ID;
+const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
