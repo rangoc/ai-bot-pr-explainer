@@ -12,16 +12,16 @@ const port = 3000;
 
 // Read the private key file
 const privateKey = fs.readFileSync(
-  "/Users/gorancabarkapa/Desktop/Work/Dlabs/Hackaton/chadreviewer.2024-07-08.private-key.pem",
+  `${process.env.HOME}/Desktop/Work/Dlabs/Hackaton/chadreviewer.2024-07-08.private-key.pem`,
   "utf8"
 );
 
 const githubApp = new App({
   appId: process.env.GITHUB_APP_ID, // Your GitHub App ID
-  privateKey, // The private key content
+  privateKey: privateKey, // The private key content
 });
 
-const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
+const installationId = process.env.GITHUB_INSTALLATION_ID;
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
@@ -45,6 +45,10 @@ app.post("/webhook", async (req, res) => {
 
       // Get the Octokit instance for the specific installation
       const octokit = await githubApp.getInstallationOctokit(installationId);
+
+      if (!octokit) {
+        throw new Error("Failed to obtain Octokit instance");
+      }
 
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
       const baseCommitSha = await getBaseCommitSha(
@@ -111,20 +115,25 @@ app.post("/webhook", async (req, res) => {
 });
 
 async function getBaseCommitSha(octokit, owner, repo, headSha) {
-  const commits = await octokit.repos.listCommits({
-    owner,
-    repo,
-    sha: headSha,
-    per_page: 2,
-  });
+  try {
+    const commits = await octokit.repos.listCommits({
+      owner,
+      repo,
+      sha: headSha,
+      per_page: 2,
+    });
 
-  // If there are more than one commit, return the SHA of the second one (base)
-  if (commits.data.length > 1) {
-    return commits.data[1].sha;
+    // If there are more than one commit, return the SHA of the second one (base)
+    if (commits.data.length > 1) {
+      return commits.data[1].sha;
+    }
+
+    // If there's only one commit, return the head SHA
+    return headSha;
+  } catch (error) {
+    console.error("Error in getBaseCommitSha:", error);
+    throw error;
   }
-
-  // If there's only one commit, return the head SHA
-  return headSha;
 }
 
 function parseDiff(diff) {
