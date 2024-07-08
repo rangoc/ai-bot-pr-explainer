@@ -55,9 +55,9 @@ githubApp.webhooks.on("pull_request.synchronize", async (event) => {
   await handlePullRequest(event);
 });
 
-githubApp.webhooks.on("pull_request.synchronize", async (event) => {
-  console.log("pull_request.synchronize event received");
-  await handlePullRequest(event);
+// Generic event handler for logging
+githubApp.webhooks.onAny(async (event) => {
+  console.log(`Event received: ${event.name}`);
 });
 
 async function handlePullRequest({ payload }) {
