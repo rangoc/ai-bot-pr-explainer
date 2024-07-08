@@ -41,15 +41,13 @@ app.post("/webhook", (req, res) => {
   // Manually verify the webhook signature
   const signature = req.headers["x-hub-signature-256"];
   const event = req.headers["x-github-event"];
-  console.log("Signature:", signature);
-  console.log("Event:", event);
 
   if (!signature) {
     res.status(400).send("Missing signature");
     return;
   }
 
-  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  console.log("secret", process.env.GITHUB_WEBHOOK_SECRET);
 
   const payload = JSON.stringify(req.body);
 
@@ -62,22 +60,6 @@ app.post("/webhook", (req, res) => {
   }
 
   res.status(200).send("Webhook received");
-});
-
-// Registering the event handlers
-githubApp.webhooks.on("pull_request.opened", async (event) => {
-  console.log("pull_request.opened event received");
-  await handlePullRequest(event);
-});
-
-githubApp.webhooks.on("pull_request.synchronize", async (event) => {
-  console.log("pull_request.synchronize event received");
-  await handlePullRequest(event);
-});
-
-// Generic event handler for logging
-githubApp.webhooks.onAny(async (event) => {
-  console.log(`Event received: ${event.name}`);
 });
 
 async function handlePullRequest({ payload }) {
@@ -112,11 +94,7 @@ async function handlePullRequest({ payload }) {
         `GET /repos/${owner}/${repo}/compare/${baseCommitSha}...${headCommitSha}`
       ); // Compare the base and head commits to get the diff
 
-      console.log("Diff data fetched:", diffData.data);
-
       const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
-
-      console.log("Parsed diff:", parsedDiff);
 
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
@@ -133,8 +111,6 @@ async function handlePullRequest({ payload }) {
         headCommitSha
       ); // Generate review comments for the changed files
 
-      console.log("Generated comments:", comments);
-
       const existingComments = await fetchExistingComments(
         octokit,
         owner,
@@ -149,6 +125,10 @@ async function handlePullRequest({ payload }) {
         existingComments,
         removedFiles
       ); // Delete comments for files that have been removed
+
+      console.log("comments", comments);
+      console.log("removedFiles", removedFiles);
+
       await postNewComments(
         octokit,
         owner,
@@ -351,21 +331,27 @@ async function postNewComments(
       );
     }
 
-    // Post the new comment
-    await octokit.request(
-      `POST /repos/${owner}/${repo}/pulls/${pullNumber}/comments`,
-      {
-        owner,
-        repo,
-        pull_number: pullNumber,
-        body: comment.body,
-        path: comment.path,
-        commit_id: comment.commit_id,
-        subject_type: "file",
-      }
-    );
+    console.log("Posting comment:", comment);
 
-    console.log("Posted comment:", response.data);
+    // Post the new comment
+    try {
+      await octokit.request(
+        `POST /repos/${owner}/${repo}/pulls/${pullNumber}/comments`,
+        {
+          owner,
+          repo,
+          pull_number: pullNumber,
+          body: comment.body,
+          path: comment.path,
+          commit_id: comment.commit_id,
+          subject_type: "file",
+        }
+      );
+    } catch (error) {
+      console.error("Error posting comment:", error);
+    }
+
+    console.log("Comment posted successfully");
   }
 }
 
