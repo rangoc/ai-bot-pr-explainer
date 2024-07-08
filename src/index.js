@@ -2,6 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import axios from "axios";
 import { App } from "@octokit/app";
+import { createNodeMiddleware } from "@octokit/webhooks";
 import dotenv from "dotenv";
 import fs from "fs";
 
@@ -19,25 +20,30 @@ const privateKey = fs.readFileSync(
 const githubApp = new App({
   appId: process.env.GITHUB_APP_ID, // Your GitHub App ID
   privateKey: privateKey, // The private key content
+  webhooks: {
+    secret: process.env.GITHUB_WEBHOOK_SECRET,
+  },
 });
 
-const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
-
+const installationId = process.env.GITHUB_INSTALLATION_ID; // Your installation ID
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 app.use(bodyParser.json());
 
-// Default GET endpoint
 app.get("/", (req, res) => {
   res.send("You are running an AI Bot PR Code Explainer");
 });
 
-app.post("/webhook", async (req, res) => {
-  try {
-    const action = req.body.action;
-    const pr = req.body.pull_request;
+app.post("/webhook", createNodeMiddleware(githubApp));
 
-    // React to 'opened' and 'synchronize' actions
+githubApp.webhooks.on("pull_request.opened", handlePullRequest);
+githubApp.webhooks.on("pull_request.synchronize", handlePullRequest);
+
+async function handlePullRequest({ payload }) {
+  try {
+    const action = payload.action;
+    const pr = payload.pull_request;
+
     if (pr && (action === "opened" || action === "synchronize")) {
       const owner = pr.base.repo.owner.login;
       const repo = pr.base.repo.name;
@@ -50,8 +56,6 @@ app.post("/webhook", async (req, res) => {
         throw new Error("Failed to obtain Octokit instance");
       }
 
-      console.log("octokit", octokit);
-
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
       const baseCommitSha = await getBaseCommitSha(
         octokit,
@@ -60,12 +64,9 @@ app.post("/webhook", async (req, res) => {
         headCommitSha
       ); // Get the base commit SHA for comparison
 
-      const diffData = await octokit.repos.compareCommits({
-        owner,
-        repo,
-        base: baseCommitSha,
-        head: headCommitSha,
-      }); // Compare the base and head commits to get the diff
+      const diffData = await octokit.request(
+        `GET /repos/${owner}/${repo}/compare/${baseCommitSha}...${headCommitSha}`
+      ); // Compare the base and head commits to get the diff
 
       const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
@@ -105,29 +106,25 @@ app.post("/webhook", async (req, res) => {
         existingComments,
         comments
       ); // Post new comments for added and modified files
-
-      res.status(200).send("Webhook received and processed");
-    } else {
-      res.status(400).send("Not a pull request event");
     }
   } catch (error) {
-    console.error("Error processing webhook:", error);
-    res.status(500).send("Internal server error");
+    console.error("Error processing pull request:", error);
   }
-});
+}
 
 async function getBaseCommitSha(octokit, owner, repo, headSha) {
   try {
-    const commits = await octokit.repos.listCommits({
-      owner,
-      repo,
-      sha: headSha,
-      per_page: 2,
-    });
+    const { data: commits } = await octokit.request(
+      `GET /repos/${owner}/${repo}/commits`,
+      {
+        sha: headSha,
+        per_page: 2,
+      }
+    );
 
     // If there are more than one commit, return the SHA of the second one (base)
-    if (commits.data.length > 1) {
-      return commits.data[1].sha;
+    if (commits.length > 1) {
+      return commits[1].sha;
     }
 
     // If there's only one commit, return the head SHA
@@ -176,12 +173,12 @@ async function fetchFileContents(octokit, owner, repo, parsedDiff, commitId) {
 }
 
 async function getFileContent(octokit, owner, repo, path, commitId) {
-  const result = await octokit.repos.getContent({
-    owner,
-    repo,
-    path,
-    ref: commitId, // Specify the commit SHA as the reference
-  });
+  const result = await octokit.request(
+    `GET /repos/${owner}/${repo}/contents/${path}`,
+    {
+      ref: commitId, // Specify the commit SHA as the reference
+    }
+  );
 
   const content = Buffer.from(result.data.content, "base64").toString("utf-8");
   return content;
@@ -256,11 +253,9 @@ async function getChatCompletion(fileContent) {
 }
 
 async function fetchExistingComments(octokit, owner, repo, pullNumber) {
-  const existingComments = await octokit.pulls.listReviewComments({
-    owner,
-    repo,
-    pull_number: pullNumber,
-  });
+  const existingComments = await octokit.request(
+    `GET /repos/${owner}/${repo}/pulls/${pullNumber}/comments`
+  );
 
   return existingComments.data;
 }
@@ -280,11 +275,9 @@ async function handleRemovedFiles(
     );
 
     if (existingComment) {
-      await octokit.pulls.deleteReviewComment({
-        owner,
-        repo,
-        comment_id: existingComment.id,
-      });
+      await octokit.request(
+        `DELETE /repos/${owner}/${repo}/pulls/comments/${existingComment.id}`
+      );
     }
   }
 }
@@ -307,23 +300,24 @@ async function postNewComments(
 
     if (existingComment) {
       // Delete the existing comment
-      await octokit.pulls.deleteReviewComment({
-        owner,
-        repo,
-        comment_id: existingComment.id,
-      });
+      await octokit.request(
+        `DELETE /repos/${owner}/${repo}/pulls/comments/${existingComment.id}`
+      );
     }
 
     // Post the new comment
-    await octokit.pulls.createReviewComment({
-      owner,
-      repo,
-      pull_number: pullNumber,
-      body: comment.body,
-      path: comment.path,
-      commit_id: comment.commit_id,
-      subject_type: "file",
-    });
+    await octokit.request(
+      "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+      {
+        owner,
+        repo,
+        pull_number: pullNumber,
+        body: comment.body,
+        path: comment.path,
+        commit_id: comment.commit_id,
+        subject_type: "file",
+      }
+    );
   }
 }
 
