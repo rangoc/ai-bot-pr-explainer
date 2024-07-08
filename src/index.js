@@ -39,17 +39,7 @@ app.post("/webhook", (req, res) => {
   console.log("Received a webhook request");
 
   // Manually verify the webhook signature
-  const signature = req.headers["x-hub-signature-256"];
   const event = req.headers["x-github-event"];
-
-  if (!signature) {
-    res.status(400).send("Missing signature");
-    return;
-  }
-
-  console.log("secret", process.env.GITHUB_WEBHOOK_SECRET);
-
-  const payload = JSON.stringify(req.body);
 
   // Simulate event handling
   if (event === "pull_request") {
@@ -63,7 +53,6 @@ app.post("/webhook", (req, res) => {
 });
 
 async function handlePullRequest({ payload }) {
-  console.log("handlePullRequest::Received webhook event:", payload);
   try {
     const action = payload.action;
     const pr = payload.pull_request;
@@ -125,9 +114,6 @@ async function handlePullRequest({ payload }) {
         existingComments,
         removedFiles
       ); // Delete comments for files that have been removed
-
-      console.log("comments", comments);
-      console.log("removedFiles", removedFiles);
 
       await postNewComments(
         octokit,
@@ -331,8 +317,6 @@ async function postNewComments(
       );
     }
 
-    console.log("Posting comment:", comment);
-
     // Post the new comment
     try {
       await octokit.request(
@@ -350,8 +334,6 @@ async function postNewComments(
     } catch (error) {
       console.error("Error posting comment:", error);
     }
-
-    console.log("Comment posted successfully");
   }
 }
 
