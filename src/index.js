@@ -55,7 +55,7 @@ app.post("/webhook", async (req, res) => {
 });
 
 async function handlePullRequest({ payload }) {
-  console.log("Handling pull requestttttt");
+  console.log("Handling pull requestttttttttttt");
   try {
     const action = payload.action;
     const pr = payload.pull_request;
