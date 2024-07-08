@@ -69,8 +69,6 @@ async function handlePullRequest({ payload }) {
         throw new Error("Failed to obtain Octokit instance");
       }
 
-      console.log("Octokit instance created successfully");
-
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
       const baseCommitSha = await getBaseCommitSha(
         octokit,
@@ -99,6 +97,8 @@ async function handlePullRequest({ payload }) {
         fileChanges,
         headCommitSha
       ); // Generate review comments for the changed files
+
+      console.log("Comments:", comments);
 
       const existingComments = await fetchExistingComments(
         octokit,
