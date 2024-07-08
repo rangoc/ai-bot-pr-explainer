@@ -45,7 +45,7 @@ app.post("/webhook", async (req, res) => {
   if (event === "pull_request") {
     const action = req.body.action;
 
-    if ((action = "opened" | (action === "synchronize"))) {
+    if ((action === "opened") | (action === "synchronize")) {
       await handlePullRequest({ payload: req.body });
     }
   }
