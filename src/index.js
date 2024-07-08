@@ -44,8 +44,16 @@ app.post(
   createNodeMiddleware(githubApp, { path: "/webhook" })
 );
 
-githubApp.webhooks.on("pull_request.opened", handlePullRequest);
-githubApp.webhooks.on("pull_request.synchronize", handlePullRequest);
+// Registering the event handlers
+githubApp.webhooks.on("pull_request.opened", async (event) => {
+  console.log("pull_request.opened event received");
+  await handlePullRequest(event);
+});
+
+githubApp.webhooks.on("pull_request.synchronize", async (event) => {
+  console.log("pull_request.synchronize event received");
+  await handlePullRequest(event);
+});
 
 async function handlePullRequest({ payload }) {
   console.log("handlePullRequest::Received webhook event:", payload);
