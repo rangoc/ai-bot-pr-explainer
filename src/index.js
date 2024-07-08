@@ -49,7 +49,7 @@ async function handlePullRequest({ payload }) {
       const repo = pr.base.repo.name;
       const prNumber = pr.number;
 
-      console.log(`Processing pull request #${prNumber} in ${owner}/${repo}`);
+      console.log(`Processing pull request #${prNumber} in ${owner}/${repo}!`);
       // Get the Octokit instance for the specific installation
       const octokit = await githubApp.getInstallationOctokit(installationId);
 
