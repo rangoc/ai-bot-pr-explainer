@@ -336,7 +336,7 @@ async function postNewComments(
     // Post the new comment
     try {
       await octokit.request(
-        `POST /repos/${owner}/${repo}/pulls/${pullNumber}/comments`,
+        `POST /repos/{owner}/{repo}/pulls/{pull_number}/comments`,
         {
           owner,
           repo,
