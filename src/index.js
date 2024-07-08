@@ -34,14 +34,21 @@ app.get("/", (req, res) => {
   res.send("You are running an AI Bot PR Code Explainer");
 });
 
-// Middleware to handle GitHub webhooks
-app.post("/webhook", createNodeMiddleware(githubApp, { path: "/webhook" }));
+//  Middleware to handle GitHub webhooks
+app.post(
+  "/webhook",
+  (req, res, next) => {
+    console.log("Received a webhook request");
+    next();
+  },
+  createNodeMiddleware(githubApp, { path: "/webhook" })
+);
 
 githubApp.webhooks.on("pull_request.opened", handlePullRequest);
 githubApp.webhooks.on("pull_request.synchronize", handlePullRequest);
 
 async function handlePullRequest({ payload }) {
-  console.log("Received webhook event:", payload);
+  console.log("handlePullRequest::Received webhook event:", payload);
   try {
     const action = payload.action;
     const pr = payload.pull_request;
