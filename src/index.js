@@ -34,7 +34,8 @@ app.get("/", (req, res) => {
   res.send("You are running an AI Bot PR Code Explainer");
 });
 
-app.post("/webhook", createNodeMiddleware(githubApp));
+// Middleware to handle GitHub webhooks
+app.post("/webhook", createNodeMiddleware(githubApp, { path: "/webhook" }));
 
 githubApp.webhooks.on("pull_request.opened", handlePullRequest);
 githubApp.webhooks.on("pull_request.synchronize", handlePullRequest);
@@ -49,7 +50,6 @@ async function handlePullRequest({ payload }) {
       const repo = pr.base.repo.name;
       const prNumber = pr.number;
 
-      console.log(`Processing pull request #${prNumber} in ${owner}/${repo}!`);
       // Get the Octokit instance for the specific installation
       const octokit = await githubApp.getInstallationOctokit(installationId);
 
