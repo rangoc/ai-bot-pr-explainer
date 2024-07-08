@@ -35,7 +35,7 @@ app.get("/", (req, res) => {
 });
 
 // Simplified webhook handler for testing
-app.post("/webhook", (req, res) => {
+app.post("/webhook", async (req, res) => {
   console.log("Received a webhook request");
 
   // Manually verify the webhook signature
@@ -45,7 +45,7 @@ app.post("/webhook", (req, res) => {
   if (event === "pull_request") {
     const action = req.body.action;
     if (action === "opened" || action === "synchronize") {
-      handlePullRequest({ payload: req.body });
+      await handlePullRequest({ payload: req.body });
     }
   }
 
