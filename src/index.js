@@ -41,6 +41,7 @@ githubApp.webhooks.on("pull_request.opened", handlePullRequest);
 githubApp.webhooks.on("pull_request.synchronize", handlePullRequest);
 
 async function handlePullRequest({ payload }) {
+  console.log("Received webhook event:", payload);
   try {
     const action = payload.action;
     const pr = payload.pull_request;
@@ -57,6 +58,8 @@ async function handlePullRequest({ payload }) {
         throw new Error("Failed to obtain Octokit instance");
       }
 
+      console.log("Octokit instance created successfully");
+
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
       const baseCommitSha = await getBaseCommitSha(
         octokit,
@@ -69,7 +72,12 @@ async function handlePullRequest({ payload }) {
         `GET /repos/${owner}/${repo}/compare/${baseCommitSha}...${headCommitSha}`
       ); // Compare the base and head commits to get the diff
 
+      console.log("Diff data fetched:", diffData.data);
+
       const parsedDiff = parseDiff(diffData.data); // Parse the diff to get the list of changed files
+
+      console.log("Parsed diff:", parsedDiff);
+
       const filteredDiff = filterIgnoredFiles(parsedDiff); // Filter out ignored files
 
       const fileChanges = await fetchFileContents(
@@ -84,6 +92,8 @@ async function handlePullRequest({ payload }) {
         fileChanges,
         headCommitSha
       ); // Generate review comments for the changed files
+
+      console.log("Generated comments:", comments);
 
       const existingComments = await fetchExistingComments(
         octokit,
@@ -114,26 +124,21 @@ async function handlePullRequest({ payload }) {
 }
 
 async function getBaseCommitSha(octokit, owner, repo, headSha) {
-  try {
-    const { data: commits } = await octokit.request(
-      `GET /repos/${owner}/${repo}/commits`,
-      {
-        sha: headSha,
-        per_page: 2,
-      }
-    );
-
-    // If there are more than one commit, return the SHA of the second one (base)
-    if (commits.length > 1) {
-      return commits[1].sha;
+  const { data: commits } = await octokit.request(
+    `GET /repos/${owner}/${repo}/commits`,
+    {
+      sha: headSha,
+      per_page: 2,
     }
+  );
 
-    // If there's only one commit, return the head SHA
-    return headSha;
-  } catch (error) {
-    console.error("Error in getBaseCommitSha:", error);
-    throw error;
+  // If there are more than one commit, return the SHA of the second one (base)
+  if (commits.length > 1) {
+    return commits[1].sha;
   }
+
+  // If there's only one commit, return the head SHA
+  return headSha;
 }
 
 function parseDiff(diff) {
@@ -319,6 +324,8 @@ async function postNewComments(
         subject_type: "file",
       }
     );
+
+    console.log("Posted comment:", response.data);
   }
 }
 
