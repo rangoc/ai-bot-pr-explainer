@@ -44,6 +44,8 @@ app.post("/webhook", async (req, res) => {
   // Simulate event handling
   if (event === "pull_request") {
     const action = req.body.action;
+    console.log("Action:", action);
+
     if (action === "opened" || action === "synchronize") {
       await handlePullRequest({ payload: req.body });
     }
