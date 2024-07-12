@@ -32,7 +32,6 @@ app.get("/", (req, res) => {
 
 // Simplified webhook handler for testing
 app.post("/webhook", async (req, res) => {
-  // Manually verify the webhook signature
   const event = req.headers["x-github-event"];
 
   // Simulate event handling
