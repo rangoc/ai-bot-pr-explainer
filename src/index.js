@@ -2,7 +2,6 @@ import express from "express";
 import bodyParser from "body-parser";
 import axios from "axios";
 import { App } from "@octokit/app";
-import { createNodeMiddleware } from "@octokit/webhooks";
 import dotenv from "dotenv";
 import fs from "fs";
 
