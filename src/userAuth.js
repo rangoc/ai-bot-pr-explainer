@@ -30,4 +30,3 @@ const auth = new UserAuth();
 auth.register({ email: "john@example.com", password: "123456" });
 console.log(auth.login("john@example.com", "123456")); // Login successful
 console.log(auth.logout("john@example.com")); // Logout successful
-console.log("Hello");

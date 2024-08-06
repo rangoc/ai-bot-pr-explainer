@@ -24,4 +24,3 @@ subscription.addSubscription({ id: 2, userId: 1, plan: "Basic" });
 console.log(subscription.getSubscriptions(1)); // Subscriptions for user 1
 subscription.removeSubscription(1);
 console.log(subscription.getSubscriptions(1)); // Subscriptions after removal
-console.log("Hello");

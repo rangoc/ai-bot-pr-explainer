@@ -24,4 +24,3 @@ addressBook.addAddress(1, { id: 2, street: "456 Oak St", city: "Othertown" });
 console.log(addressBook.displayAddresses(1)); // User addresses
 addressBook.removeAddress(1);
 console.log(addressBook.displayAddresses(1)); // Addresses after removal
-console.log("Hello");

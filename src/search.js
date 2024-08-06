@@ -19,4 +19,3 @@ const products = [
 const search = new Search(products);
 console.log(search.searchByName("lap")); // Products matching 'lap'
 console.log(search.searchByName("phone")); // Products matching 'phone'
-console.log("Hello");

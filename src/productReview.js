@@ -32,4 +32,3 @@ review.addReview(1, {
 console.log(review.displayReviews(1)); // Reviews for product 1
 review.removeReview(1);
 console.log(review.displayReviews(1)); // Reviews for product 1 after removal
-console.log("Hello");
