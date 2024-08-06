@@ -25,3 +25,4 @@ cart.addItem({ id: 2, name: "Product 2", price: 20, quantity: 1 });
 console.log(cart.getTotalPrice()); // 40
 cart.removeItem(1);
 console.log(cart.getTotalPrice()); // 20
+console.log("Hello");

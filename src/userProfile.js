@@ -23,3 +23,4 @@ const profile = new UserProfile();
 profile.addUser({ id: 1, name: "John Doe", email: "john@example.com" });
 profile.updateUser(1, { name: "John Smith" });
 console.log(profile.getUserProfile(1)); // Updated profile
+console.log("Hello");

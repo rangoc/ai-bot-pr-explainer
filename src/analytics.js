@@ -18,3 +18,4 @@ analytics.trackEvent({ type: "click", element: "buy_button" });
 analytics.trackEvent({ type: "page_view", page: "product" });
 console.log(analytics.getEventCount("page_view")); // Count of page views
 console.log(analytics.getEventCount("click")); // Count of clicks
+console.log("Hello");

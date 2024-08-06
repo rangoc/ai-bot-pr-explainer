@@ -4,6 +4,10 @@ import axios from "axios";
 import { App } from "@octokit/app";
 import dotenv from "dotenv";
 import fs from "fs";
+import Queue from "bull";
+import { ExpressAdapter } from "@bull-board/express";
+import { createBullBoard } from "@bull-board/api";
+import { BullAdapter } from "@bull-board/api/dist/src/queueAdapters/bull.js";
 
 dotenv.config(); // Load environment variables
 
@@ -26,6 +30,18 @@ const openaiApiKey = process.env.OPENAI_API_KEY;
 
 app.use(bodyParser.json());
 
+// Create a queue for processing webhooks
+const webhookQueue = new Queue("webhookQueue");
+
+// Set up a dashboard for monitoring the queue
+const serverAdapter = new ExpressAdapter();
+createBullBoard({
+  queues: [new BullAdapter(webhookQueue)],
+  serverAdapter: serverAdapter,
+});
+serverAdapter.setBasePath("/admin/queues");
+app.use("/admin/queues", serverAdapter.getRouter());
+
 app.get("/", (req, res) => {
   res.send("You are running an AI Bot PR Code Explainer");
 });
@@ -38,12 +54,18 @@ app.post("/webhook", async (req, res) => {
   if (event === "pull_request") {
     const action = req.body.action;
 
-    if ((action === "opened") | (action === "synchronize")) {
-      await handlePullRequest({ payload: req.body });
+    if (action === "opened" || action === "synchronize") {
+      // Add job to the queue
+      webhookQueue.add({ payload: req.body });
     }
   }
 
   res.status(200).send("Webhook received");
+});
+
+webhookQueue.process(async (job) => {
+  const { payload } = job.data;
+  await handlePullRequest({ payload });
 });
 
 async function handlePullRequest({ payload }) {
