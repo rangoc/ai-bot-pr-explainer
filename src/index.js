@@ -85,6 +85,8 @@ async function handlePullRequest({ payload }) {
         throw new Error("Failed to obtain Octokit instance");
       }
 
+      console.log("Hello");
+
       const headCommitSha = pr.head.sha; // Get the latest commit SHA
       const baseCommitSha = await getBaseCommitSha(
         octokit,
