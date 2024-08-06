@@ -22,4 +22,3 @@ const converter = new CurrencyConverter();
 converter.setRate("USD", 1);
 converter.setRate("EUR", 0.85);
 console.log(converter.convert(100, "USD", "EUR")); // Convert USD to EUR
-console.log("Hello");

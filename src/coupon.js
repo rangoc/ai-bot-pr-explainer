@@ -21,4 +21,3 @@ const coupon = new Coupon();
 coupon.addCoupon({ code: "SAVE10", discount: 10 });
 console.log(coupon.applyCoupon("SAVE10", 100)); // 90
 console.log(coupon.applyCoupon("NOCOUPON", 100)); // 100
-console.log("Hello");

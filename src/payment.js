@@ -21,4 +21,3 @@ class Payment {
 const payment = new Payment();
 const newPayment = payment.makePayment(1, 40);
 console.log(payment.checkPaymentStatus(newPayment.paymentId)); // Completed
-console.log("Hello");
