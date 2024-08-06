@@ -23,3 +23,4 @@ tracking.updateStatus(1, "Shipped");
 console.log(tracking.getStatus(1)); // Shipped
 tracking.updateStatus(1, "Delivered");
 console.log(tracking.getStatus(1)); // Delivered
+console.log("Hello");
