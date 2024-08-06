@@ -21,3 +21,4 @@ const userAddress = {
 };
 shipping.addAddress(userAddress.user, userAddress.address);
 console.log(shipping.calculateShippingCost(userAddress.address)); // Shipping cost
+console.log("Hello");

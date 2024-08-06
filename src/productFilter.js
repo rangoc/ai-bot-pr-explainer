@@ -23,3 +23,4 @@ const products = [
 const filter = new ProductFilter(products);
 console.log(filter.filterByCategory("Electronics")); // Electronics products
 console.log(filter.filterByPriceRange(50, 150)); // Products within price range
+console.log("Hello");

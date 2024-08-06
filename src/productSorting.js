@@ -27,3 +27,4 @@ const products = [
 const sorting = new ProductSorting(products);
 console.log(sorting.sortByPrice()); // Sort by price ascending
 console.log(sorting.sortByName("desc")); // Sort by name descending
+console.log("Hello");
