@@ -20,3 +20,4 @@ const cart = { items: [{ id: 1, name: "Product 1", price: 10, quantity: 2 }] };
 const user = { id: 1, name: "John Doe" };
 const newOrder = order.createOrder(cart, user);
 console.log(order.getOrderDetails(newOrder.orderId)); // Order details
+console.log("Hello");

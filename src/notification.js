@@ -24,3 +24,4 @@ notification.addNotification({ id: 2, message: "Payment received" });
 console.log(notification.displayNotifications()); // Display all notifications
 notification.removeNotification(1);
 console.log(notification.displayNotifications()); // Display after removal
+console.log("Hello");
