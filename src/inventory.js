@@ -22,3 +22,4 @@ inventory.addProduct({ id: 1, name: "Product 1", stock: 10 });
 inventory.addProduct({ id: 2, name: "Product 2", stock: 0 });
 console.log(inventory.checkStock(1)); // 10
 console.log(inventory.checkStock(2)); // Out of stock
+console.log("Hello");
